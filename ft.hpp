@@ -79,7 +79,7 @@ template <typename T> struct allocator_no_throw : allocator<T> {
   }
 };
 
-template <typename T> using contiguous_allocator = allocator<T>;
+template <typename T> using contiguous_allocator = allocator_no_throw<T>;
 template <typename T> class shreded_allocator {};
 
 template <typename T> using default_allocator = contiguous_allocator<T>;
@@ -102,6 +102,9 @@ template <typename T, typename Allocator = allocator<T>> struct unique_ptr {
 
   unique_ptr(unique_ptr &&other) = default;
   unique_ptr &operator=(unique_ptr &&rhs) { return *this = std::move(ptr); }
+
+  raw_pointer operator*() { return ptr_;  }
+  raw_pointer operator->() { return ptr_; }
 
   raw_pointer get() const { return ptr_; }
   raw_pointer release() {
