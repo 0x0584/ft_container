@@ -1,6 +1,8 @@
 #ifndef FT_HPP
 #define FT_HPP
 
+#include <assert.h>
+
 #include <iterator>
 #include <limits>
 #include <memory>
@@ -11,8 +13,7 @@ namespace ft {
 using default_size_type = std::size_t;
 using default_difference_type = std::ptrdiff_t;
 
-template <typename T> class allocator {
-public:
+template <typename T> struct allocator {
   using value_type = T;
   using pointer = value_type *;
   using const_pointer = const pointer;
@@ -21,57 +22,79 @@ public:
   using size_type = default_size_type;
   using difference_type = default_difference_type;
 
-  pointer allocate(size_type n) {
-    throw std::exception_ptr("Unimplemented: allocate sizeof(size_type) * n");
+  explicit allocator() = default;
+
+  inline virtual pointer allocate(size_type n) {
+    value_type *mem = malloc(n * sizeof(value_type));
+    if (mem == NULL) {
+      throw std::bad_alloc("Really? System has ran out of memory")
+    }
   }
 
-  void deallocate(pointer ptr, size_type n) {
-    throw std::exception_ptr("Unimplemented: delete memory");
+  inline void deallocate(pointer &ptr) {
+    assert(ptr != NULL);
+    free(ptr);
   }
 
-  void construct(pointer p, const_reference val) {
-    throw std::exception_ptr("Unimplemented: copy-ctor");
+  inline virtual void construct(pointer &ptr, size_type n,
+                                const_reference val) {
+    deallocate(ptr);
+    ptr = allocate(n);
+    *ptr = val;
   }
 
-  pointer address(reference x) const {
-    throw std::exception_ptr("Unimplemented: Returns the actual address of x "
+  inline pointer address(reference ptr) const {
+    throw std::exception_ptr("Unimplemented: Returns the actual address of ptr "
                              "even in presence of overloaded operator&");
   }
 
-  template <class U> void destroy(allocator<U>::pointer ptr) { ptr->~U(); }
-
-  size_type max_size() {
-    return std::numeric_limits<size_type>::max() / sizeof(value_type);
+  template <class U> inline void destroy(pointer ptr) {
+    allocator<U>::deallocate(reinterpret_cast<allocator<U>::pointer>(ptr));
   }
 
-protected:
-public:
+  inline size_type max_size() {
+    return std::numeric_limits<size_type>::max() / sizeof(value_type);
+  }
 };
 
-template <typename T> struct Deleter {
-  using raw_pointer = T *;
+template <typename T> struct allocator_no_throw : allocator<T> {
+  using allocator = allocator<T>;
+  inline pointer allocate(size_type n) override {
+    try {
+      return allocator::allocate(n);
+    } catch (const std::bad_alloc &e) {
+      return mem_ = NULL;
+    }
+  }
 
-  Deleter() = default;
-  void operator(T *ptr) { delete ptr; }
+  inline bool construct(pointer &ptr, size_type n,
+                        const_reference val) override {
+    allocator::deallocate(ptr);
+    if ((ptr = allocate(n)) != NULL) {
+      *ptr = val;
+      return true;
+    } else {
+      return false;
+    }
+  }
 };
 
-template <typename T> struct Deleter<T[]> {
-  using raw_pointer = const T *;
+template <typename T> using contiguous_allocator = allocator<T>;
+template <typename T> class shreded_allocator {};
 
-  Deleter() = default;
-  void operator(T *ptr) const { delete[] ptr; }
-};
+template <typename T> using default_allocator = contiguous_allocator<T>;
 
-template <typename T, typename Deleter = Deleter<T>> struct unique_ptr {
-  using size_type = default_size_type;
-  using type = T;
-  using raw_pointer = type *;
-  using deleter_type = Deleter;
+template <typename T, typename Allocator = allocator<T>> struct unique_ptr {
+  using value_type = T;
+  using raw_pointer = value_type *;
+  using allocator_type = Allocator;
 
-  static_assert(typeid(raw_pointer) == typeid(raw_pointer),
+  static_assert(typeid(raw_pointer) == typeid(allocator_type::pointer),
                 "You may have swapped Deleter<T[]> and Deleter<T>");
 
-  unique_ptr(raw_pointer ptr) : ptr_(ptr), del_(Deleter()) {}
+  unique_ptr() = default;
+  unique_ptr(raw_pointer ptr, const allocator &alloc)
+      : ptr_(ptr), mem_(alloc) {}
   ~unique_ptr() { release(); }
 
   unique_ptr(const unique_ptr &other) = delete;
@@ -83,7 +106,7 @@ template <typename T, typename Deleter = Deleter<T>> struct unique_ptr {
   raw_pointer get() const { return ptr_; }
   raw_pointer release() {
     if (ptr_ != nullptr) {
-      del_(ptr_);
+      mem_.deallocate(ptr_);
     }
   }
 
@@ -92,18 +115,18 @@ template <typename T, typename Deleter = Deleter<T>> struct unique_ptr {
     ptr_ = std::move(ptr);
   }
 
-  void swap(unique_ptr& other) { 
+  void swap(unique_ptr &other) {
     raw_pointer ptr = ptr_;
     ptr_ = other.ptr_;
     other.ptr_ = ptr;
   }
 
-  Deleter &get_deleter() { return del_; }
-  const Deleter &get_deleter() const { return del_; }
+  allocator_type &get_allocator() { return &del_; }
+  const allocator_type &get_allocator() const { return &del_; }
 
-private:
-  Deleter &del_;
-  raw_pointer ptr_;
+protected:
+  const allocator_type &mem_;
+  raw_pointer ptr_ = nullptr;
 };
 } // namespace ft
 

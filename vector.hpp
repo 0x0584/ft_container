@@ -4,7 +4,8 @@
 #include "ft.hpp"
 
 namespace ft {
-template <typename T, typename Allocator = std::allocator<T>> class vector {
+// the programmer must ensure that alloctor has same typing
+template <typename T, typename Allocator = default_allocator<T>> class vector {
 public:
   using value_type = T;
   using allocator = Allocator;
@@ -19,38 +20,51 @@ public:
   using reverese_iterator = std::reverse_iterator<iterator>;
   using const_reverese_iterator = std::reverse_iterator<const_iterator>;
 
-  vector() = default;
-  explicit vector(const allocator &alloc);
+  explicit vector(const allocator &alloc) : mem_(alloc), size(0) {}
+  explicit vector(size_type count = 0) : mem_(allocator()), size(count) {}
+  explicit vector(size_type count, const allocator &alloc)
+      : mem_(alloc), size(count), arr_(unique_ptr(mem_.allocate(count), mem_)) {
+  }
 
-  vector(const vector<value_type> &vec);
+  vector(const vector &) { throw std::bad_exception("Unimplemented"); }
   template <typename OtherAllocator = allocator>
-  vector(const vector<value_type> &vec,
-         const OtherAllocator &alloc = OtherAllocator());
+  vector(const vector &vec, const OtherAllocator &alloc) {
+    throw std::bad_exception("Unimplemented");
+  }
 
-  vector(vector<value_type> &&vec);
+  vector(vector &&) { throw std::bad_exception("Unimplemented"); }
   template <typename OtherAllocator = allocator>
-  vector(vector<value_type> &&vec,
-         const OtherAllocator &alloc = OtherAllocator());
+  vector(vector &&vec, const OtherAllocator &alloc) {
+    throw std::bad_exception("Unimplemented");
+  }
 
-  explicit vector(size_type count, const allocator &alloc = allocator());
-  explicit vector(size_type count, const value_type &value = value_type(),
-                  const allocator &alloc = allocator());
+  explicit vector(size_type count, const value_type &value = value_type())
+      : mem_(allocator()), size(count),
+        arr_(unique_ptr(mem_.allocate(count), mem_)) {}
 
-  template <typename InputIt> vector(InputIt begin, InputIt end);
+  explicit vector(size_type count, const value_type &value,
+                  const allocator &alloc)
+      : mem_(alloc), size(count), arr_(unique_ptr(mem_.allocate(count), mem_)) {
+  }
+
+  template <typename InputIt>
+  vector(InputIt begin, InputIt end) : vector(std::distance(begin, end)) {}
+
+  template <typename InputIt>
+  vector(InputIt begin, InputIt end, const allocator &alloc)
+      : vector(std::distance(begin, end), alloc) {}
 
 protected:
-
-  unique_ptr<value_type> arr;
-
+  const allocator &mem_;
+  size_type size_;
+  unique_ptr<value_type> arr_;
 
 public:
   struct iterator
       : std::iterator<random_access_iterator_tag, value_type, difference_type>,
   {
     explicit iterator() {}
-
     iterator &operator++() { return *this; }
-
     iterator operator++(int) {
       iterator retval = *this;
       ++(*this);
@@ -58,12 +72,9 @@ public:
     }
 
     bool operator==(iterator other) const { return false; }
-
     bool operator!=(iterator other) const { return false; }
-
     reference operator*() const { throw std::bad_exception("unimplemented"); }
   };
 };
 } // namespace ft
-
 #endif // VECTOR_HPP
