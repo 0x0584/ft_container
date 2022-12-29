@@ -8,10 +8,18 @@
 #include <memory>
 #include <stdexcept>
 #include <typeinfo>
+#include <utility>
 
 namespace ft {
 using default_size_type = std::size_t;
 using default_difference_type = std::ptrdiff_t;
+
+template <typename T> static inline const T &as_const(T &obj) {
+  return static_cast<const decltype(obj)>(obj);
+}
+
+#define AVAILABLE_THEORITICAL_MEMORY(S_, V_)                                   \
+  (std::numeric_limits<static_cast<S_>>::max() / sizeof(V_))
 
 template <typename T> struct allocator {
   using value_type = T;
@@ -52,9 +60,7 @@ template <typename T> struct allocator {
     allocator<U>::deallocate(reinterpret_cast<allocator<U>::pointer>(ptr));
   }
 
-  inline size_type max_size() {
-    return std::numeric_limits<size_type>::max() / sizeof(value_type);
-  }
+  inline size_type max_size() const { return AVAILABLE_THEORITICAL_MEMORY(size_type, value_type); }
 };
 
 template <typename T> struct allocator_no_throw : allocator<T> {
@@ -103,7 +109,7 @@ template <typename T, typename Allocator = allocator<T>> struct unique_ptr {
   unique_ptr(unique_ptr &&other) = default;
   unique_ptr &operator=(unique_ptr &&rhs) { return *this = std::move(ptr); }
 
-  raw_pointer operator*() { return ptr_;  }
+  raw_pointer operator*() { return ptr_; }
   raw_pointer operator->() { return ptr_; }
 
   raw_pointer get() const { return ptr_; }
