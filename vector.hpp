@@ -197,6 +197,33 @@ public:
 
   /////////////////////////////////////////////////////////////////////////////
 
+  void resize(size_type count, value_type value = value_type()) {
+    if (count == size_) {
+      return;
+    } else if (count > size_) {
+      if (count > capacity_) {
+        scale_capacity_(count);
+      }
+      for (size_type i = count - size_; i != 0;) {
+        --i;
+        arr_[size_ + i] = value;
+      }
+    } else {
+      for (size_type i = size_ - count; i != 0;) {
+        --i;
+        arr_[size_ + i].~value_type();
+      }
+    }
+  }
+
+  void swap(vector &other) {
+    std::swap(arr_, other.arr_);
+    std::swap(capacity_, other.capacity_);
+    std::swap(size_, other.size_);
+  }
+
+  /////////////////////////////////////////////////////////////////////////////
+
   // TODO: at
   value_type &at(size_type index) {
     if (size_ > index) {
@@ -255,17 +282,15 @@ protected:
   pointer arr_;
   size_type size_, capacity_;
 
-  struct memory {
-    inline void scale_capacity_(size_type new_cap) {
-      assert(new_cap != 0);
-      arr_ = mem_.allocate(arr_ == nullptr ? NEW_ALLOC : arr_, new_cap);
-      capacity_ = new_cap;
-    }
+  inline void scale_capacity_(size_type new_cap) {
+    assert(new_cap != 0);
+    arr_ = mem_.allocate(arr_ == nullptr ? NEW_ALLOC : arr_, new_cap);
+    capacity_ = new_cap;
+  }
 
-    inline void grow_capacity_() {
-      scale_capacity_(static_cast<size_type>(growth_factor * size_));
-    }
-  };
+  inline void grow_capacity_() {
+    scale_capacity_(static_cast<size_type>(growth_factor * size_));
+  }
 
 public:
   // TODO: op=
