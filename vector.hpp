@@ -140,14 +140,14 @@ public:
     assert(iterator_factory<const_iterator>::range_validator(pos, cend()));
     assert(iterator_factory<const_iterator>::range_validator(first, last));
 
-    size_type count = std::distance(first, last), size = size_ + count;
+    size_type count = std::distance(first, last) + 1, size = size_ + count;
     if (size > capacity_) {
       scale_capacity_(size);
     }
 
     difference_type index = std::distance(cbegin(), pos);
     for (difference_type i = index; i < size_; ++i) {
-      arr_[i + count] = arr_[i];
+      arr_[i + count - 1] = arr_[i];
     }
     size_type i = 0;
     for (InputIt i = 0; i < count; ++i) {
@@ -157,6 +157,42 @@ public:
     size_ = size;
     return iterator_factory<iterator>::construct(std::make_pair(arr_, size_),
                                                  index);
+  }
+
+  /////////////////////////////////////////////////////////////////////////////
+
+  iterator erase(iterator pos) {
+    assert(iterator_factory<const_iterator>::range_validator(pos, size_));
+
+    if (empty() || pos == end()) {
+      return end();
+    }
+
+    difference_type index = std::distance(cbegin(), pos);
+    for (difference_type i = index; i < size_ - 1; ++i) {
+      arr_[i] = arr_[i + 1];
+    }
+    --size_;
+    return iterator_factory<iterator>::construct(std::make_pair(arr_, size_),
+                                                 index);
+  }
+
+  iterator erase(iterator first, iterator last) {
+    assert(iterator_factory<const_iterator>::range_validator(first, size_));
+    assert(iterator_factory<const_iterator>::range_validator(first, last));
+
+    difference_type index = std::distance(begin(), first),
+                    range = std::distance(first, last);
+    for (difference_type i = index; i < size_ - 1; ++i) {
+      arr_[i] = arr_[i + range];
+    }
+    size_ -= range;
+    if (empty() || last == end()) {
+      return iterator_factory<iterator>::construct(size_);
+    } else {
+      return iterator_factory<iterator>::construct(std::make_pair(arr_, size_),
+                                                   index);
+    }
   }
 
   /////////////////////////////////////////////////////////////////////////////
@@ -422,12 +458,13 @@ protected:
           iterator_factory<Iterator>(data, index));
     }
 
+    // FIXME: check data as well
     static size_type range_validator(const Iterator &it, size_type count) {
-      return count == count_
+      return count == count_;
     }
 
     static size_type range_validator(const Iterator &it1, const Iterator &it2) {
-      return it1.count == it2.count_
+      return it1.count == it2.count_;
     }
   };
 
