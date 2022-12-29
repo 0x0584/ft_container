@@ -30,11 +30,12 @@ public:
   explicit vector(size_type count)
       : mem_(allocator()), size_(count), capacity_(count) {
     assert(count != 0); // FIXME: handle allocation
-    arr_ = mem_.allocate(count);
+    arr_ = mem_.allocate(NEW_ALLOC, count);
   }
 
   vector(size_type count, const allocator &alloc)
-      : mem_(alloc), arr_() size_(count), arr_(mem_.allocate(count)) {}
+      : mem_(alloc), arr_(), size_(count),
+        arr_(mem_.allocate(NEW_ALLOC, count)) {}
 
   vector(const vector &) { throw std::bad_exception("Unimplemented"); }
 
@@ -51,12 +52,12 @@ public:
   }
 
   explicit vector(size_type count, const value_type &value = value_type())
-      : mem_(allocator()), arr_(mem_.allocate(count)), size_(count),
+      : mem_(allocator()), arr_(mem_.allocate(nullptr, count)), size_(count),
         capacity_(count) {}
 
   explicit vector(size_type count, const value_type &value,
                   const allocator &alloc)
-      : mem_(alloc), arr_(mem_.allocate(count)), size_(count),
+      : mem_(alloc), arr_(mem_.allocate(nullptr, count)), size_(count),
         capacity_(count) {}
 
   template <typename InputIt>
@@ -80,20 +81,17 @@ public:
 
   void reserve(size_type new_cap) {
     if (new_cap > capacity_) {
-      if (new_cap > mem_.max_size()) {
-        throw std::runtime_error(
-            "cannot reserve memory: maximum allowed by allocator");
-      }
-      scale_alloc(arr_, new_cap, capacity_);
+      scale_capacity_(new_cap);
     }
   }
 
   // equivalent to ctor with intialisation
   void assign(size_type count, const T &value) {
-    if (count < size_) {
-      scale_alloc(arr_, count, capacity_, size_);
+    if (count < capacity_) {
+      scale_capacity_(count);
+      size_ = count;
     }
-    for (size_type i = 0; i < size_; ++i) {
+    for (size_type i = 0; i < count; ++i) {
       arr_[i] = value;
     }
   }
@@ -106,39 +104,28 @@ public:
   }
 
   /////////////////////////////////////////////////////////////////////////////
-
-  iterator insert(const_iterator pos, size_type count, const T &value) {}
+  /////////////////////////////////////////////////////////////////////////////
 
   iterator insert(const_iterator pos, const T &value) {
-    difference_type index = std::distance(begin(), pos);
-    size_type shit_size = std::distance(pos, end());
+    assert(iterator_factory<const_iterator>::range_size(pos) == size_);
+    assert(iterator_factory<const_iterator>::range_size(pos) ==
+           iterator_factory<const_iterator>::range_size(cbegin()));
+    assert(iterator_factory<const_iterator>::range_size(pos) ==
+           iterator_factory<const_iterator>::range_size(cend()));
 
-    pointer arr = arr_;
-    size_type size = size_ + 1, capacity = capacity_;
-    if (size > capacity) {
-      pointer arr = mem_.allocate(size);
-      capacity_ = size;
+    if (size_ + 1 > capacity_) {
+      scale_capacity_(size_ + 1);
     }
-    for (size_type i = 0; i < index; ++i) {
-      arr[i] = arr_[i];
+    for (size_type i = std::distance(pos, cend()) + 1; i < size_ + 1; ++i) {
+      arr_[i] = arr_[i - 1];
     }
-    arr[index] = value;
-    for (size_type i = index + 1; i < size_ + 1; ++i) {
-      arr[i] = arr_[i];
-    }
-    if (size > capacity) {
-      mem_.deallocate(arr_);
-      arr_ = arr;
-      size_ = size;
+    arr_[std::distance(cbegin(), pos)] = value;
+    size_ = size_ + 1;
+    return iterator_factory<iterator>::construct(std::make_pair(arr_, size_), index);
+  }
 
-    }
-
-    try {
-
-    } catch () {
-    }
-
-    return iterator(std::make_pair(arr_, size_), index));
+  iterator insert(const_iterator pos, size_type count, const T &value) {
+    //
   }
 
   template <class InputIt>
@@ -147,7 +134,7 @@ public:
   /////////////////////////////////////////////////////////////////////////////
 
   // TODO: at
-  inline value_type &at(size_type index) {
+  value_type &at(size_type index) {
     if (size_ > index) {
       return arr_[index];
     } else {
@@ -155,7 +142,7 @@ public:
     }
   }
 
-  inline const value_type &at(size_type index) const {
+  const value_type &at(size_type index) const {
     if (size_ > index) {
       return arr_[index];
     } else {
@@ -164,7 +151,7 @@ public:
   }
 
   // TODO: front
-  inline value_type &front() {
+  value_type &front() {
     if (not empty()) {
       return *arr_;
     } else {
@@ -172,7 +159,7 @@ public:
     }
   }
 
-  inline const value_type &front() const {
+  const value_type &front() const {
     if (not empty()) {
       return *arr_;
     } else {
@@ -181,7 +168,7 @@ public:
   }
 
   // TODO: back
-  inline value_type &back() {
+  value_type &back() {
     if (not empty()) {
       return *(arr_ + size_ - 1);
     } else {
@@ -189,7 +176,7 @@ public:
     }
   }
 
-  inline const value_type &back() const {
+  const value_type &back() const {
     if (not empty()) {
       return *(arr_ + size_ - 1);
     } else {
@@ -201,26 +188,18 @@ protected:
   static const double growth_factor = 1.5;
 
   const allocator &mem_;
-  allocator::pointer arr_;
+  pointer arr_;
   size_type size_, capacity_;
 
   struct memory {
-    inline void scale_alloc(allocator::pointer &data, size_type new_cap,
-                            size_type &capacity) {
+    inline void scale_capacity_(size_type new_cap) {
       assert(new_cap != 0);
-      mem_.deallocate(data);
-      data = mem_.allocate(new_cap);
-      save_stat = new_cap;
+      data = mem_.allocate(arr_, new_cap);
+      capacity_ = new_cap;
     }
 
-    void scale_alloc(allocator::pointer &data, size_type new_cap,
-                     size_type &capacity, size_type &size) {
-      scale_alloc(data, new_cap, capacity);
-      size = new_cap;
-    }
-
-    void grow_alloc(size_type size) {
-      scale_alloc(static_cast<size_type>(growth_factor * size_));
+    inline void grow_capacity_() {
+      scale_capacity_(static_cast<size_type>(growth_factor * size_));
     }
   };
 
@@ -400,7 +379,7 @@ public:
   }
 
 protected:
-  template <typename Iterator> class iterator_factory : Iterator {
+  template <typename Iterator> class iterator_factory : protected Iterator {
     explicit iterator_factory(size_type count) : Iterator(count) {}
     iterator_factory(std::pair<value_type *, size_type> data, size_type index)
         : Iterator(data, index) {}
@@ -414,6 +393,8 @@ protected:
       return reinterpret_cast<Iterator>(
           iterator_factory<Iterator>(data, index));
     }
+
+    static size_type range_size(const Iterator &it) { return count_ }
   };
 };
 } // namespace ft

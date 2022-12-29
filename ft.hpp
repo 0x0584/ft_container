@@ -27,6 +27,8 @@ template <typename T> static inline const T &as_const(T &obj) {
        ? AVAILABLE_THEORITICAL_MEMORY(T1_, V_)                                 \
        : AVAILABLE_THEORITICAL_MEMORY(T2_, V_))
 
+#define NEW_ALLOC nullptr
+
 template <typename T> struct allocator {
   using value_type = T;
   using pointer = value_type *;
@@ -38,11 +40,16 @@ template <typename T> struct allocator {
 
   explicit allocator() = default;
 
-  inline virtual pointer allocate(size_type n) {
-    value_type *mem = malloc(n * sizeof(value_type));
+  inline virtual pointer allocate(pointer hint, size_type n) {
+    if (n > mem_.max_size()) {
+      throw std::runtime_error(
+          "cannot reserve memory: maximum allowed by allocator");
+    }
+    value_type *mem = realloc(hint, n * sizeof(value_type));
     if (mem == NULL) {
       throw std::bad_alloc("Really? System has ran out of memory")
     }
+    return mem;
   }
 
   inline void deallocate(pointer &ptr) {
@@ -52,8 +59,8 @@ template <typename T> struct allocator {
 
   inline virtual void construct(pointer &ptr, size_type n,
                                 const_reference val) {
-    deallocate(ptr);
-    ptr = allocate(n);
+    // FIXME: deallocate(ptr);
+    ptr = allocate(ptr, n);
     *ptr = val;
   }
 
