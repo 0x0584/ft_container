@@ -114,6 +114,11 @@ public:
 
   iterator insert(const_iterator pos, const T &value) {
     difference_type index = std::distance(begin(), pos);
+
+    if (index <= 0) {
+      reserve(1);
+    }
+
     return iterator(std::make_pair(arr_, size_), index));
   }
 
@@ -205,11 +210,11 @@ public:
   struct iterator
       : std::iterator<random_access_iterator_tag, value_type, difference_type> {
 
-    explicit iterator(size_type count)
-        : data_(nullptr), index_(count), size_(count), flag_(true) {}
+    iterator(const iterator &other)
+        : data_(other.data_), index_(other.index_), count_(other.count_),
+          flag_(other.flag_) {}
 
-    iterator(std::pair<value_type *, size_type> data, size_type index)
-        : data_(data.first), index_(index), size_(data.second), flag_(false) {}
+    iterator &operator=(const iterator &other) { return *this = other; }
 
     difference_type operator-(const iterator &other) const {
       return other.index_ - index_;
@@ -273,6 +278,12 @@ public:
     size_type index_;
     const size_type size_;
     const bool flag_
+
+        explicit iterator(size_type count)
+        : data_(nullptr), index_(count), size_(count), flag_(true) {}
+
+    iterator(std::pair<value_type *, size_type> data, size_type index)
+        : data_(data.first), index_(index), size_(data.second), flag_(false) {}
   };
 
   struct const_iterator
@@ -319,25 +330,52 @@ public:
     const bool flag_;
   };
 
-  iterator begin() { return iterator(std::make_pair(arr_, size_), 0); }
+  iterator begin() {
+    return iterator_factory<iterator>::construct(std::make_pair(arr_, size_),
+                                                 0);
+  }
   const_iterator cbegin() const {
-    return const_iterator(std::make_pair(arr_, size_), 0);
+    return iterator_factory<const_iterator>::construct(
+        std::make_pair(arr_, size_), 0);
   }
 
-  iterator end() { return iterator(size_); }
-  const_iterator cend() const { return const_iterator(size_); }
+  iterator end() { return iterator_factory<iterator>::construct(size_); }
+  const_iterator cend() const {
+    return iterator_factory<const_iterator>::construct(size_);
+  }
 
   reverese_iterator rbegin() {
-    return reverese_iterator(iterator(std::make_pair(arr_, size_), 0));
+    return iterator_factory<reverse_iterator>::construct(
+        std::make_pair(arr_, size_), 0);
   }
   const_reverese_iterator rcbegin() const {
-    return const_reverese_iterator(iterator(std::make_pair(arr_, size_), 0));
+    return iterator_factory<const_reverese_iterator>::construct(
+        std::make_pair(arr_, size_), 0);
   }
 
-  reverese_iterator rend() { return reverese_iterator(iterator(size_)); }
-  const_reverese_iterator rcend() const {
-    return const_reverese_iterator(iterator(size_));
+  reverese_iterator rend() {
+    return iterator_factory<reverese_iterator>::construct(size_);
   }
+  const_reverese_iterator rcend() const {
+    return iterator_factory<const_reverese_iterator>::construct(size_);
+  }
+
+protected:
+  template <typename Iterator> class iterator_factory : Iterator {
+    explicit iterator_factory(size_type count) : Iterator(count) {}
+    iterator_factory(std::pair<value_type *, size_type> data, size_type index)
+        : Iterator(data, index) {}
+
+  public:
+    static Iterator construct(size_type count) {
+      return reinterpret_cast<Iterator>(iterator_factory<Iterator>(count));
+    }
+    static Iterator construct(std::pair<value_type *, size_type> data,
+                              size_type index) {
+      return reinterpret_cast<Iterator>(
+          iterator_factory<Iterator>(data, index));
+    }
+  };
 };
 } // namespace ft
 #endif // VECTOR_HPP
