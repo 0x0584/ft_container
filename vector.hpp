@@ -84,17 +84,14 @@ public:
         throw std::runtime_error(
             "cannot reserve memory: maximum allowed by allocator");
       }
-      mem_.deallocate(arr_);
-      arr_ = mem_.allocate(new_cap);
-      capacity_ = new_cap;
+      scale_alloc(arr_, new_cap, capacity_);
     }
   }
 
   // equivalent to ctor with intialisation
   void assign(size_type count, const T &value) {
     if (count < size_) {
-      reserve(count);
-      size_ = count;
+      scale_alloc(arr_, count, capacity_, size_);
     }
     for (size_type i = 0; i < size_; ++i) {
       arr_[i] = value;
@@ -114,9 +111,31 @@ public:
 
   iterator insert(const_iterator pos, const T &value) {
     difference_type index = std::distance(begin(), pos);
+    size_type shit_size = std::distance(pos, end());
 
-    if (index <= 0) {
-      reserve(1);
+    pointer arr = arr_;
+    size_type size = size_ + 1, capacity = capacity_;
+    if (size > capacity) {
+      pointer arr = mem_.allocate(size);
+      capacity_ = size;
+    }
+    for (size_type i = 0; i < index; ++i) {
+      arr[i] = arr_[i];
+    }
+    arr[index] = value;
+    for (size_type i = index + 1; i < size_ + 1; ++i) {
+      arr[i] = arr_[i];
+    }
+    if (size > capacity) {
+      mem_.deallocate(arr_);
+      arr_ = arr;
+      size_ = size;
+
+    }
+
+    try {
+
+    } catch () {
     }
 
     return iterator(std::make_pair(arr_, size_), index));
@@ -184,6 +203,26 @@ protected:
   const allocator &mem_;
   allocator::pointer arr_;
   size_type size_, capacity_;
+
+  struct memory {
+    inline void scale_alloc(allocator::pointer &data, size_type new_cap,
+                            size_type &capacity) {
+      assert(new_cap != 0);
+      mem_.deallocate(data);
+      data = mem_.allocate(new_cap);
+      save_stat = new_cap;
+    }
+
+    void scale_alloc(allocator::pointer &data, size_type new_cap,
+                     size_type &capacity, size_type &size) {
+      scale_alloc(data, new_cap, capacity);
+      size = new_cap;
+    }
+
+    void grow_alloc(size_type size) {
+      scale_alloc(static_cast<size_type>(growth_factor * size_));
+    }
+  };
 
 public:
   // TODO: op=
@@ -277,9 +316,9 @@ public:
     value_type *data_;
     size_type index_;
     const size_type size_;
-    const bool flag_
+    const bool flag_;
 
-        explicit iterator(size_type count)
+    explicit iterator(size_type count)
         : data_(nullptr), index_(count), size_(count), flag_(true) {}
 
     iterator(std::pair<value_type *, size_type> data, size_type index)
