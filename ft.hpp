@@ -21,6 +21,12 @@ template <typename T> static inline const T &as_const(T &obj) {
 #define AVAILABLE_THEORITICAL_MEMORY(S_, V_)                                   \
   (std::numeric_limits<static_cast<S_>>::max() / sizeof(V_))
 
+#define AVAILABLE_MEMORY(T1_, T2_, V_)                                         \
+  (AVAILABLE_THEORITICAL_MEMORY(T1_, V_) <                                     \
+           AVAILABLE_THEORITICAL_MEMORY(T2_, V_)                               \
+       ? AVAILABLE_THEORITICAL_MEMORY(T1_, V_)                                 \
+       : AVAILABLE_THEORITICAL_MEMORY(T2_, V_))
+
 template <typename T> struct allocator {
   using value_type = T;
   using pointer = value_type *;
@@ -60,7 +66,9 @@ template <typename T> struct allocator {
     allocator<U>::deallocate(reinterpret_cast<allocator<U>::pointer>(ptr));
   }
 
-  inline size_type max_size() const { return AVAILABLE_THEORITICAL_MEMORY(size_type, value_type); }
+  inline size_type max_size() const {
+    return AVAILABLE_THEORITICAL_MEMORY(size_type, difference_type, value_type);
+  }
 };
 
 template <typename T> struct allocator_no_throw : allocator<T> {

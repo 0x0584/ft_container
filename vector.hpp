@@ -11,41 +11,53 @@ template <typename T, typename Allocator = default_allocator<T>> class vector {
 public:
   using value_type = T;
   using allocator = Allocator;
-  using size_type = default_size_type;
-  using difference_type = default_difference_type;
+  using size_type = allocator::size_type;
+  using difference_type = allocator::difference_type;
   using reference = value_type &;
   using const_reference = const value_type &;
-  using pointer = Allocator::pointer;
-  using const_pointer = Allocator::const_pointer;
+  using pointer = allocator::pointer;
+  using const_pointer = allocator::const_pointer;
   using reverese_iterator = std::reverse_iterator<struct iterator>;
   using const_reverese_iterator = std::reverse_iterator<struct const_iterator>;
 
   ~vector() { delete[] arr_; }
 
-  explicit vector(const allocator &alloc) : mem_(alloc), size(0) {}
-  explicit vector(size_type count = 0)
-      : mem_(allocator()), size(count), arr_(mem_.allocate(count)) {}
-  explicit vector(size_type count, const allocator &alloc)
-      : mem_(alloc), size(count), arr_(mem_.allocate(count)) {}
+  vector() : mem_(allocator()), arr_(nullptr), size_(0), capacity_(0) {}
+
+  explicit vector(const allocator &alloc)
+      : mem_(alloc), arr_(nullptr), size_(0), capacity_(0) {}
+
+  explicit vector(size_type count)
+      : mem_(allocator()), size_(count), capacity_(count) {
+    assert(count != 0); // FIXME: handle allocation
+    arr_ = mem_.allocate(count);
+  }
+
+  vector(size_type count, const allocator &alloc)
+      : mem_(alloc), arr_() size_(count), arr_(mem_.allocate(count)) {}
 
   vector(const vector &) { throw std::bad_exception("Unimplemented"); }
+
   template <typename OtherAllocator = allocator>
   vector(const vector &vec, const OtherAllocator &alloc) {
     throw std::bad_exception("Unimplemented");
   }
 
   vector(vector &&) { throw std::bad_exception("Unimplemented"); }
+
   template <typename OtherAllocator = allocator>
   vector(vector &&vec, const OtherAllocator &alloc) {
     throw std::bad_exception("Unimplemented");
   }
 
   explicit vector(size_type count, const value_type &value = value_type())
-      : mem_(allocator()), size(count), arr_(mem_.allocate(count)) {}
+      : mem_(allocator()), arr_(mem_.allocate(count)), size_(count),
+        capacity_(count) {}
 
   explicit vector(size_type count, const value_type &value,
                   const allocator &alloc)
-      : mem_(alloc), size(count), arr_(mem_.allocate(count)) {}
+      : mem_(alloc), arr_(mem_.allocate(count)), size_(count),
+        capacity_(count) {}
 
   template <typename InputIt>
   vector(InputIt begin, InputIt end) : vector(std::distance(begin, end)) {}
@@ -88,6 +100,27 @@ public:
       arr_[i] = value;
     }
   }
+
+  void clear() {
+    for (size_type i = 0; i < size_; ++i) {
+      arr[i].~value_type();
+    }
+    size_ = 0;
+  }
+
+  /////////////////////////////////////////////////////////////////////////////
+
+  iterator insert(const_iterator pos, size_type count, const T &value) {}
+
+  iterator insert(const_iterator pos, const T &value) {
+    difference_type index = std::distance(begin(), pos);
+    return iterator(std::make_pair(arr_, size_), index));
+  }
+
+  template <class InputIt>
+  iterator insert(const_iterator pos, InputIt first, InputIt last) {}
+
+  /////////////////////////////////////////////////////////////////////////////
 
   // TODO: at
   inline value_type &at(size_type index) {
@@ -144,8 +177,8 @@ protected:
   static const double growth_factor = 1.5;
 
   const allocator &mem_;
+  allocator::pointer arr_;
   size_type size_, capacity_;
-  value_type *arr_ = nullptr;
 
 public:
   // TODO: op=
@@ -178,6 +211,10 @@ public:
     iterator(std::pair<value_type *, size_type> data, size_type index)
         : data_(data.first), index_(index), size_(data.second), flag_(false) {}
 
+    difference_type operator-(const iterator &other) const {
+      return other.index_ - index_;
+    }
+
     iterator &operator++() {
       if (flag_ || index_ == size_) {
         throw std::out_of_range("invalid iterator: cannot increment");
@@ -190,6 +227,21 @@ public:
     iterator operator++(int) {
       iterator retval = *this;
       operator++();
+      return retval;
+    }
+
+    iterator &operator--() {
+      if (!flag || index_ == 0) {
+        throw std::out_of_range("invalid iterator: cannot decrement");
+      } else {
+        index_--;
+        return *this;
+      }
+    }
+
+    iterator operator--(int) {
+      iterator retval = *this;
+      operator--();
       return retval;
     }
 
@@ -222,9 +274,6 @@ public:
     const size_type size_;
     const bool flag_
   };
-
-  iterator begin() { return iterator(std::make_pair(arr_, size_), 0); }
-  iterator end() { return iterator(size_); }
 
   struct const_iterator
       : std::iterator<random_access_iterator_tag, value_type, difference_type> {
@@ -270,10 +319,25 @@ public:
     const bool flag_;
   };
 
-  const_iterator begin() const {
+  iterator begin() { return iterator(std::make_pair(arr_, size_), 0); }
+  const_iterator cbegin() const {
     return const_iterator(std::make_pair(arr_, size_), 0);
   }
-  const_iterator end() const { return const_iterator(size_); }
+
+  iterator end() { return iterator(size_); }
+  const_iterator cend() const { return const_iterator(size_); }
+
+  reverese_iterator rbegin() {
+    return reverese_iterator(iterator(std::make_pair(arr_, size_), 0));
+  }
+  const_reverese_iterator rcbegin() const {
+    return const_reverese_iterator(iterator(std::make_pair(arr_, size_), 0));
+  }
+
+  reverese_iterator rend() { return reverese_iterator(iterator(size_)); }
+  const_reverese_iterator rcend() const {
+    return const_reverese_iterator(iterator(size_));
+  }
 };
 } // namespace ft
 #endif // VECTOR_HPP
