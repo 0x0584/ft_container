@@ -106,30 +106,58 @@ public:
   /////////////////////////////////////////////////////////////////////////////
   /////////////////////////////////////////////////////////////////////////////
 
-  iterator insert(const_iterator pos, const T &value) {
-    assert(iterator_factory<const_iterator>::range_size(pos) == size_);
-    assert(iterator_factory<const_iterator>::range_size(pos) ==
-           iterator_factory<const_iterator>::range_size(cbegin()));
-    assert(iterator_factory<const_iterator>::range_size(pos) ==
-           iterator_factory<const_iterator>::range_size(cend()));
-
-    if (size_ + 1 > capacity_) {
-      scale_capacity_(size_ + 1);
-    }
-    for (size_type i = std::distance(pos, cend()) + 1; i < size_ + 1; ++i) {
-      arr_[i] = arr_[i - 1];
-    }
-    arr_[std::distance(cbegin(), pos)] = value;
-    size_ = size_ + 1;
-    return iterator_factory<iterator>::construct(std::make_pair(arr_, size_), index);
+  iterator insert(const_iterator pos, const value_type &value) {
+    return insert(pos, 1, value);
   }
 
-  iterator insert(const_iterator pos, size_type count, const T &value) {
-    //
+  iterator insert(const_iterator pos, size_type count,
+                  const value_type &value) {
+    assert(iterator_factory<const_iterator>::range_validator(pos, size_));
+    assert(iterator_factory<const_iterator>::range_validator(pos, cbegin()));
+    assert(iterator_factory<const_iterator>::range_validator(pos, cend()));
+
+    size_type size = size_ + count;
+    if (size > capacity_) {
+      scale_capacity_(size);
+    }
+
+    difference_type index = std::distance(cbegin(), pos);
+    for (difference_type i = index; i < size_; ++i) {
+      arr_[i + count] = arr_[i];
+    }
+    for (size_type i = 0; i < count; ++i) {
+      arr_[index + i] = value;
+    }
+    size_ = size;
+    return iterator_factory<iterator>::construct(std::make_pair(arr_, size_),
+                                                 index);
   }
 
   template <class InputIt>
-  iterator insert(const_iterator pos, InputIt first, InputIt last) {}
+  iterator insert(const_iterator pos, InputIt first, InputIt last) {
+    assert(iterator_factory<const_iterator>::range_validator(pos, size_));
+    assert(iterator_factory<const_iterator>::range_validator(pos, cbegin()));
+    assert(iterator_factory<const_iterator>::range_validator(pos, cend()));
+    assert(iterator_factory<const_iterator>::range_validator(first, last));
+
+    size_type count = std::distance(first, last), size = size_ + count;
+    if (size > capacity_) {
+      scale_capacity_(size);
+    }
+
+    difference_type index = std::distance(cbegin(), pos);
+    for (difference_type i = index; i < size_; ++i) {
+      arr_[i + count] = arr_[i];
+    }
+    size_type i = 0;
+    for (InputIt i = 0; i < count; ++i) {
+      arr_[index + i] = *first++;
+    }
+    assert(first == last);
+    size_ = size;
+    return iterator_factory<iterator>::construct(std::make_pair(arr_, size_),
+                                                 index);
+  }
 
   /////////////////////////////////////////////////////////////////////////////
 
@@ -194,7 +222,7 @@ protected:
   struct memory {
     inline void scale_capacity_(size_type new_cap) {
       assert(new_cap != 0);
-      data = mem_.allocate(arr_, new_cap);
+      arr_ = mem_.allocate(arr_ == nullptr ? NEW_ALLOC : arr_, new_cap);
       capacity_ = new_cap;
     }
 
@@ -394,8 +422,16 @@ protected:
           iterator_factory<Iterator>(data, index));
     }
 
-    static size_type range_size(const Iterator &it) { return count_ }
+    static size_type range_validator(const Iterator &it, size_type count) {
+      return count == count_
+    }
+
+    static size_type range_validator(const Iterator &it1, const Iterator &it2) {
+      return it1.count == it2.count_
+    }
   };
+
+  // FIXME: factory should hold the instance array by design
 };
 } // namespace ft
 #endif // VECTOR_HPP
