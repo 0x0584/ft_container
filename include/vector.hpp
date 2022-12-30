@@ -24,16 +24,7 @@ public:
   using reverese_iterator = std::reverse_iterator<iterator>;
   using const_reverese_iterator = std::reverse_iterator<struct const_iterator>;
 
-
   vector() : mem_(allocator()), arr_(nullptr), size_(0), capacity_(0) {}
-  ~vector() { delete[] arr_; }
-
-  explicit vector(const allocator &alloc)
-      : mem_(alloc), arr_(nullptr), size_(0), capacity_(0) {}
-
-  vector(size_type count, const allocator &alloc)
-      : mem_(alloc), arr_(), size_(count),
-        arr_(mem_.allocate(NEW_ALLOC, count)) {}
 
   vector(const vector &) { throw std::bad_exception("Unimplemented"); }
 
@@ -49,13 +40,27 @@ public:
     throw std::bad_exception("Unimplemented");
   }
 
-  explicit vector(size_type count, const value_type &value = value_type())
-      : mem_(allocator()), arr_(count == 0 ? NEW_ALLOC : mem_.allocate(NEW_ALLOC, count)), size_(count),
-        capacity_(count) {
+  ~vector() { delete[] arr_; }
+
+  explicit vector(const allocator &alloc)
+      : mem_(alloc), arr_(nullptr), size_(0), capacity_(0) {}
+
+  vector(size_type count, const allocator &alloc)
+      : mem_(alloc), arr_(), size_(count),
+        arr_(mem_.allocate(NEW_ALLOC, count)) {
+    for (size_type i = 0; i < count; ++i) {
+      arr_[i] = value_type();
+    }
   }
 
-  explicit vector(size_type count)
-      : mem_(allocator()), size_(count), capacity_(count) {}
+  explicit vector(size_type count, const value_type &value = value_type())
+      : mem_(allocator()),
+        arr_(count == 0 ? NEW_ALLOC : mem_.allocate(NEW_ALLOC, count)),
+        size_(count), capacity_(count) {
+    for (size_type i = 0; i < count; ++i) {
+      arr_[i] = value;
+    }
+  }
 
   explicit vector(size_type count, const value_type &value,
                   const allocator &alloc)
@@ -293,7 +298,7 @@ public:
   }
 
 protected:
-  const allocator &mem_;
+  allocator mem_;
   pointer arr_;
   size_type size_, capacity_;
 

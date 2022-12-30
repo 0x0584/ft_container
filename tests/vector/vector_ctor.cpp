@@ -36,7 +36,7 @@ int main(int argc, const char *argv[]) {
       vector::size_type pre_cond = m;
       value_type post_cond1{};
       vector::pointer post_cond2 = NEW_ALLOC;
-      vector v(pre_cond1);
+      vector v(pre_cond);
       assert(v.size() == pre_cond);
       assert(v.capacity() == pre_cond);
       assert(v.data() != post_cond2);

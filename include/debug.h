@@ -2,6 +2,8 @@
 #define DEBUG_H
 
 #include <assert.h>
+#include <limits.h>
+
 #ifdef DEBUG
 #ifdef NDEBUG
 #undef NDEBUG
