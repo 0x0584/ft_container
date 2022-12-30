@@ -224,6 +224,21 @@ public:
 
   /////////////////////////////////////////////////////////////////////////////
 
+  void push_back(const value_type &value) {
+    if (size_ == capacity_) {
+      grow_capacity_();
+    }
+    arr_[++size_] = value;
+  }
+
+  void pop_back() {
+    if (not empty()) {
+      --size_;
+    }
+  }
+
+  /////////////////////////////////////////////////////////////////////////////
+
   // TODO: at
   value_type &at(size_type index) {
     if (size_ > index) {
@@ -495,5 +510,58 @@ protected:
 
   // FIXME: factory should hold the instance array by design
 };
+
+namespace impl {
+template <class T, class Alloc, typename Predicat>
+static bool
+operator_handler(const vector<T, Alloc> &lhs, const vector<T, Alloc> &rhs,
+                 vector<T, Alloc>::size_type size, Predicat predicat) {
+  for (vector<T, Alloc>::size_type i = 0; i < size; ++i) {
+    if (not predicat(lhs[i], rhs[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+} // namespace impl
+
+template <class T, class Alloc>
+static bool operator==(const vector<T, Alloc> &lhs,
+                       const vector<T, Alloc> &rhs) {
+  return lhs.size() == rhs.size()
+             ? impl::operator_handler(lhs, rhs, lhs.size(), std::equal<T>)
+             : false;
+}
+
+template <class T, class Alloc>
+static bool operator!=(const vector<T, Alloc> &lhs,
+                       const vector<T, Alloc> &rhs) {
+  return not operator==(lhs, rhs);
+}
+
+template <class T, class Alloc>
+static bool operator<(const vector<T, Alloc> &lhs,
+                      const vector<T, Alloc> &rhs) {
+  return impl::operator_handler(lhs, rhs, std::min(lhs.size(), rhs.size()),
+                                std::less<T>);
+}
+
+template <class T, class Alloc>
+bool operator<=(const vector<T, Alloc> &lhs, const vector<T, Alloc> &rhs) {
+  return impl::operator_handler(lhs, rhs, std::min(lhs.size(), rhs.size()),
+                                std::less_equal<T>);
+}
+
+template <class T, class Alloc>
+bool operator>(const vector<T, Alloc> &lhs, const vector<T, Alloc> &rhs) {
+  return impl::operator_handler(lhs, rhs, std::min(lhs.size(), rhs.size()),
+                                std::greater<T>);
+}
+
+template <class T, class Alloc>
+bool operator>=(const vector<T, Alloc> &lhs, const vector<T, Alloc> &rhs) {
+  return impl::operator_handler(lhs, rhs, std::min(lhs.size(), rhs.size()),
+                                std::greater_equal<T>);
+}
 } // namespace ft
 #endif // VECTOR_HPP
