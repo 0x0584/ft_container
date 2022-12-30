@@ -1,7 +1,7 @@
 #ifndef FT_HPP
 #define FT_HPP
 
-#include <assert.h>
+#include "debug.h"
 
 #include <iterator>
 #include <limits>
@@ -55,13 +55,15 @@ template <typename T> struct allocator {
   inline void deallocate(pointer &ptr) {
     assert(ptr != NULL);
     free(ptr);
+    ptr = NEW_ALLOC;
   }
 
-  inline virtual void construct(pointer &ptr, size_type n,
+  inline virtual bool construct(pointer &ptr, size_type n,
                                 const_reference val) {
     // FIXME: deallocate(ptr);
     ptr = allocate(ptr, n);
     *ptr = val;
+    return true;
   }
 
   inline pointer address(reference ptr) const {
@@ -74,36 +76,33 @@ template <typename T> struct allocator {
   }
 
   inline size_type max_size() const {
-    return AVAILABLE_THEORITICAL_MEMORY(size_type, difference_type, value_type);
+    return AVAILABLE_MEMORY(size_type, difference_type, value_type);
   }
 };
 
-template <typename T> struct allocator_no_throw : allocator<T> {
+template <typename T> struct allocator_no_throw : public allocator<T> {
   using allocator = allocator<T>;
-  inline pointer allocate(size_type n) override {
+  inline pointer allocate(pointer hint, size_type n) override {
     try {
-      return allocator::allocate(n);
+      return allocator::allocate(hint, n);
     } catch (const std::bad_alloc &e) {
       return mem_ = NULL;
     }
   }
 
-  inline bool construct(pointer &ptr, size_type n,
-                        const_reference val) override {
-    allocator::deallocate(ptr);
-    if ((ptr = allocate(n)) != NULL) {
-      *ptr = val;
+  inline bool construct(pointer &ptr, size_type n, const_reference val) {
+    try {
+      allocator<T>::allocate(ptr, n);
       return true;
-    } else {
+    }
+    else {
       return false;
     }
   }
 };
 
-template <typename T> using contiguous_allocator = allocator_no_throw<T>;
-template <typename T> class shreded_allocator {};
-
-template <typename T> using default_allocator = contiguous_allocator<T>;
+template <typename T> class shreded_allocator : public allocator<T> {};
+template <typename T> using default_allocator = allocator<T>;
 
 template <typename T, typename Allocator = allocator<T>> struct unique_ptr {
   using value_type = T;
@@ -111,19 +110,25 @@ template <typename T, typename Allocator = allocator<T>> struct unique_ptr {
   using allocator_type = Allocator;
 
   static_assert(typeid(raw_pointer) == typeid(allocator_type::pointer),
-                "You may have swapped Deleter<T[]> and Deleter<T>");
+                "fatal: incompatible pointer type");
 
-  unique_ptr() = default;
-  unique_ptr(raw_pointer ptr, const allocator &alloc)
+  unique_ptr() : mem_(allocator_type()) {}
+
+  unique_ptr(unique_ptr &&) = default;
+  unique_ptr(const unique_ptr &) = delete;
+
+  unique_ptr(raw_pointer ptr) : mem_(allocator_type()), ptr_(ptr) {}
+  unique_ptr(raw_pointer ptr, const allocator_type &alloc)
       : ptr_(ptr), mem_(alloc) {}
   ~unique_ptr() { release(); }
 
   unique_ptr(const unique_ptr &other) = delete;
-  unique_ptr &operator=(const unique_ptr &ptr) = delete;
+
 
   unique_ptr(unique_ptr &&other) = default;
-  unique_ptr &operator=(unique_ptr &&rhs) { return *this = std::move(ptr); }
 
+  unique_ptr &operator=(unique_ptr &&) = default;
+  unique_ptr &operator=(const unique_ptr &) = delete;
   raw_pointer operator*() { return ptr_; }
   raw_pointer operator->() { return ptr_; }
 

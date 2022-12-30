@@ -3,6 +3,8 @@
 
 #include "ft.hpp"
 
+#define GROWTH_FACTOR 1.5
+
 // TODO: avoid code duplication
 
 namespace ft {
@@ -11,27 +13,23 @@ template <typename T, typename Allocator = default_allocator<T>> class vector {
 public:
   using value_type = T;
   using allocator = Allocator;
-  using size_type = allocator::size_type;
-  using difference_type = allocator::difference_type;
+  using size_type = typename allocator::size_type;
+  using difference_type = typename allocator::difference_type;
   using reference = value_type &;
   using const_reference = const value_type &;
-  using pointer = allocator::pointer;
-  using const_pointer = allocator::const_pointer;
-  using reverese_iterator = std::reverse_iterator<struct iterator>;
+  using pointer = typename allocator::pointer;
+  using const_pointer = typename allocator::const_pointer;
+  using iterator = struct iterator;
+  using const_iterator = struct const_iterator;
+  using reverese_iterator = std::reverse_iterator<iterator>;
   using const_reverese_iterator = std::reverse_iterator<struct const_iterator>;
 
-  ~vector() { delete[] arr_; }
 
   vector() : mem_(allocator()), arr_(nullptr), size_(0), capacity_(0) {}
+  ~vector() { delete[] arr_; }
 
   explicit vector(const allocator &alloc)
       : mem_(alloc), arr_(nullptr), size_(0), capacity_(0) {}
-
-  explicit vector(size_type count)
-      : mem_(allocator()), size_(count), capacity_(count) {
-    assert(count != 0); // FIXME: handle allocation
-    arr_ = mem_.allocate(NEW_ALLOC, count);
-  }
 
   vector(size_type count, const allocator &alloc)
       : mem_(alloc), arr_(), size_(count),
@@ -52,8 +50,12 @@ public:
   }
 
   explicit vector(size_type count, const value_type &value = value_type())
-      : mem_(allocator()), arr_(mem_.allocate(nullptr, count)), size_(count),
-        capacity_(count) {}
+      : mem_(allocator()), arr_(count == 0 ? NEW_ALLOC : mem_.allocate(NEW_ALLOC, count)), size_(count),
+        capacity_(count) {
+  }
+
+  explicit vector(size_type count)
+      : mem_(allocator()), size_(count), capacity_(count) {}
 
   explicit vector(size_type count, const value_type &value,
                   const allocator &alloc)
@@ -291,8 +293,6 @@ public:
   }
 
 protected:
-  static const double growth_factor = 1.5;
-
   const allocator &mem_;
   pointer arr_;
   size_type size_, capacity_;
@@ -329,8 +329,8 @@ public:
 
   /////////////////////////////////////////////////////////////////////////////
 
-  struct iterator
-      : std::iterator<random_access_iterator_tag, value_type, difference_type> {
+  struct iterator : std::iterator<std::random_access_iterator_tag, value_type,
+                                  difference_type> {
 
     iterator(const iterator &other)
         : data_(other.data_), index_(other.index_), count_(other.count_),
@@ -408,8 +408,8 @@ public:
         : data_(data.first), index_(index), size_(data.second), flag_(false) {}
   };
 
-  struct const_iterator
-      : std::iterator<random_access_iterator_tag, value_type, difference_type> {
+  struct const_iterator : std::iterator<std::random_access_iterator_tag,
+                                        value_type, difference_type> {
 
     explicit const_iterator(size_type count)
         : data_(nullptr), index_(count), size_(count), flag_(true) {}
@@ -515,7 +515,7 @@ namespace impl {
 template <class T, class Alloc, typename Predicat>
 static bool
 operator_handler(const vector<T, Alloc> &lhs, const vector<T, Alloc> &rhs,
-                 vector<T, Alloc>::size_type size, Predicat predicat) {
+                 typename vector<T, Alloc>::size_type size, Predicat predicat) {
   for (vector<T, Alloc>::size_type i = 0; i < size; ++i) {
     if (not predicat(lhs[i], rhs[i])) {
       return false;
