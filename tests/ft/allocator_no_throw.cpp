@@ -1,6 +1,6 @@
 #include "ft.hpp"
-
-int main(int argc, const char *argv[]) {
-
-  { ft::allocator_no_throw<int> alloc; }
+#include "gtest/gtest.h"
+TEST(AllocatorNoThrow, AllocatorNoThrowDefault) {
+  using value_type = int;
+  ft::allocator_no_throw<value_type> alloc; 
 }

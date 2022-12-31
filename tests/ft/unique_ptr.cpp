@@ -1,12 +1,10 @@
 #include "ft.hpp"
+#include "gtest/gtest.h"
 
-int main(int argc, const char *argv[]) { 
+TEST(UniquePtrCtor, UniquePtrCtorDefault) {
+  using value_type = int;
+  using unique_ptr = ft::unique_ptr<value_type>;
 
-  {
-    using value_type = int;
-    using unique_ptr = ft::unique_ptr<value_type>;
-
-    unique_ptr::raw_pointer p = new value_type{};
-    unique_ptr ptr(p);
-  }
+  unique_ptr::pointer p = new value_type{};
+  unique_ptr ptr(p);
 }

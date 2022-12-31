@@ -1,3 +1,6 @@
 #include "list.hpp"
+#include "gtest/gtest.h"
 
-int main(int argc, const char *argv[]) { return argc; }
+TEST(ListCtor, ListCtorDefault) {
+  using value_type = int;
+}
