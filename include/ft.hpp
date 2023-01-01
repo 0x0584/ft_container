@@ -43,8 +43,8 @@ template <typename T> struct allocator {
   allocator &operator=(const allocator &) = delete;
   allocator &operator=(allocator &&) = default;
 
-  explicit allocator(size_type size = AVAILABLE_MEMORY(difference_type, size_type,
-                                              value_type))
+  explicit allocator(size_type size = AVAILABLE_MEMORY(difference_type,
+                                                       size_type, value_type))
       : capacity_(size), allocated_(0), n_allocs_(0), n_frees_(0) {}
 
   virtual ~allocator() {}
@@ -52,7 +52,7 @@ template <typename T> struct allocator {
   inline virtual pointer allocate(pointer hint) { return allocate(hint, 1); }
 
   inline virtual pointer allocate(pointer hint, size_type n) {
-    assert(allocated_ < capacity_);
+    assert(allocated_ <= capacity_);
     const size_type footprint = n * sizeof(value_type);
     if (footprint + allocated_ > capacity_) {
       throw std::runtime_error(
@@ -63,7 +63,7 @@ template <typename T> struct allocator {
     if (mem == NEW_ALLOC) {
       throw std::bad_alloc(); // out of memory
     }
-    allocated_ += footprint;
+    allocated_ += footprint; // FIXME: check for reallocation
     ++n_allocs_;
     return mem;
   }
@@ -82,7 +82,7 @@ template <typename T> struct allocator {
       }
       free(ptr);
       allocated_ -= (n * sizeof(value_type));
-      --n_frees_;
+      ++n_frees_;
       ptr = NEW_ALLOC;
     }
   }
@@ -91,7 +91,7 @@ template <typename T> struct allocator {
                                 const_reference val) {
     ptr = allocate(NEW_ALLOC, n);
     for (size_type i = 0; i < n; ++i) {
-      ptr[i] = value_type(val);
+      ptr[i] = val;
     }
     return true;
   }
@@ -172,9 +172,7 @@ protected:
 template <typename T> struct allocator_no_throw : public allocator<T> {
   using allocator = allocator<T>;
 
-  inline pointer allocate(pointer hint) override {
-    return allocate(hint, 1);
-  }
+  inline pointer allocate(pointer hint) override { return allocate(hint, 1); }
 
   inline pointer allocate(pointer hint, size_type n) override {
     try {
