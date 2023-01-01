@@ -68,7 +68,7 @@ template <typename T> struct allocator {
     return mem;
   }
 
-  void deallocate(pointer &ptr) { deallocate(ptr, 1); }
+  void deallocate(pointer ptr) { deallocate(ptr, 1); }
 
   inline void deallocate(pointer ptr, size_type n) {
     // if (c_array_factory::validator(this, arr)) {
@@ -196,61 +196,74 @@ template <typename T> struct allocator_no_throw : public allocator<T> {
 template <typename T> class shreded_allocator : public allocator<T> {};
 template <typename T> using default_allocator = allocator<T>;
 
-template <typename T, typename Allocator = allocator<T>> struct unique_ptr {
-  using allocator = Allocator;
-  using value_type = typename allocator::value_type;
-  using pointer = typename allocator::pointer;
+template <typename T> struct deleter {
+  void operator()(T *ptr) { delete ptr; }
+};
 
-  static_assert(typeid(pointer) == typeid(allocator::pointer),
-                "fatal: incompatible pointer type");
+//
+// template <typename T> struct deleter<T[]> {
+//  void operator()(T *ptr) { delete[] ptr; }
+//};
 
-  unique_ptr() : mem_(allocator()) {}
+template <typename T, typename Deleter = deleter<T>> struct unique_ptr {
+  using deleter = Deleter;
+  using value_type = T;
+  using pointer = value_type *;
+
+  unique_ptr() : mem_(deleter()), ptr_(nullptr) {}
   ~unique_ptr() { release(); }
 
   unique_ptr(unique_ptr &&) = default;
   unique_ptr(const unique_ptr &) = delete;
 
-  unique_ptr(pointer ptr) : mem_(allocator()), ptr_(ptr) {}
-  unique_ptr(pointer ptr, const allocator &alloc) : ptr_(ptr), mem_(alloc) {}
+  explicit unique_ptr(pointer ptr) : mem_(deleter()), ptr_(ptr) {}
+  unique_ptr(pointer ptr, deleter alloc) : mem_(std::move(alloc)), ptr_(ptr) {}
 
   unique_ptr &operator=(unique_ptr &&) = default;
   unique_ptr &operator=(const unique_ptr &) = delete;
 
   pointer get() const { return ptr_; }
 
-  pointer operator*() {
+  value_type &operator*() {
     if (ptr_ == nullptr) {
       throw std::runtime_error(
           "fatal error: tried to access pointer set to nullptr");
     }
     return *ptr_;
   }
-  pointer operator->() { return operator*(); }
+  value_type &operator->() { return operator*(); }
 
   pointer release() {
+    pointer tmp = ptr_;
     if (ptr_ != nullptr) {
-      mem_.destroy(ptr);
+      mem_(ptr_);
+      ptr_ = nullptr;
     }
+    return tmp;
   }
 
-  void reset(pointer ptr = NEW_ALLOC) {
-    release(ptr);
-    ptr_ = std::move(ptr);
-  }
+  void reset(pointer ptr = nullptr) { ptr_ = ptr; }
 
   void swap(unique_ptr &other) {
-    pointer ptr = ptr_;
-    ptr_ = other.ptr_;
-    other.ptr_ = ptr;
+    std::swap(ptr_, other.ptr_);
+    std::swap(mem_, other.mem_);
   }
 
-  allocator &get_allocator() { return &del_; }
-  const allocator &get_allocator() const { return &del_; }
+  deleter &get_deleter() { return mem_; }
+
+  const deleter &get_deleter() const { return mem_; }
 
 protected:
-  const allocator &mem_;
+  deleter mem_;
   pointer ptr_ = nullptr;
 };
 } // namespace ft
 
+namespace std {
+template <typename T, typename Allocator>
+void swap(ft::unique_ptr<T, Allocator> &ptr1,
+          ft::unique_ptr<T, Allocator> &ptr2) {
+  ptr1.swap(ptr2);
+}
+} // namespace std
 #endif // FT_HPP
