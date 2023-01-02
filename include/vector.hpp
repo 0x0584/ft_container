@@ -3,7 +3,7 @@
 
 #include "ft.hpp"
 
-#define GROWTH_FACTOR 1.5
+#define GROWTH_FACTOR 2
 
 // TODO: avoid code duplication
 
@@ -40,14 +40,14 @@ public:
     throw std::bad_exception("Unimplemented");
   }
 
-  ~vector() { delete[] arr_; }
+  ~vector() { clear(); }
 
   explicit vector(const allocator &alloc)
       : mem_(alloc), arr_(nullptr), size_(0), capacity_(0) {}
 
   vector(size_type count, const allocator &alloc)
-      : mem_(alloc), arr_(), size_(count),
-        arr_(mem_.allocate(NEW_ALLOC, count)) {
+      : mem_(alloc), arr_(mem_.allocate(NEW_ALLOC, count)), size_(count),
+        capacity_(count) {
     for (size_type i = 0; i < count; ++i) {
       arr_[i] = value_type();
     }
@@ -62,17 +62,27 @@ public:
     }
   }
 
-  explicit vector(size_type count, const value_type &value,
+  vector(size_type count, const value_type &value,
                   const allocator &alloc)
-      : mem_(alloc), arr_(mem_.allocate(nullptr, count)), size_(count),
-        capacity_(count) {}
+      : mem_(alloc),
+        arr_(count == 0 ? NEW_ALLOC : mem_.allocate(NEW_ALLOC, count)),
+        size_(count), capacity_(count) {}
 
   template <typename InputIt>
-  vector(InputIt begin, InputIt end) : vector(std::distance(begin, end)) {}
+  vector(InputIt begin, InputIt end) : mem_(allocator()) {
+    const difference_type count =
+        distance<difference_type, InputIt>(begin, end);
+    arr_ = (count == 0 ? NEW_ALLOC : mem_.allocate(NEW_ALLOC, count));
+    size_ = count;
+    capacity_ = count;
+    for (difference_type i = 0; i < count; ++i) {
+      arr_[i] = static_cast<value_type>(*begin++);
+    }
+    assert(begin == end);
+  }
 
-  template <typename InputIt, typename OtherAllocator>
-  vector(InputIt begin, InputIt end, const OtherAllocator &alloc)
-      : vector(std::distance(begin, end), alloc) {}
+  // template <typename InputIt, typename OtherAllocator>
+  // vector(InputIt begin, InputIt end, const OtherAllocator &) {}
 
   /////////////////////////////////////////////////////////////////////////////
 
@@ -83,8 +93,8 @@ public:
   inline size_type max_size() const { mem_.max_size(); }
 
   // TODO: data
-  inline const value_type *data() { return arr_; }
-  inline const value_type *data() const { return arr_; }
+  inline pointer data() { return arr_; }
+  inline const pointer data() const { return arr_; }
 
   void reserve(size_type new_cap) {
     if (new_cap > capacity_) {
@@ -105,7 +115,7 @@ public:
 
   void clear() {
     for (size_type i = 0; i < size_; ++i) {
-      arr[i].~value_type();
+      arr_[i].~value_type();
     }
     size_ = 0;
   }
@@ -211,14 +221,12 @@ public:
       if (count > capacity_) {
         scale_capacity_(count);
       }
-      for (size_type i = count - size_; i != 0;) {
-        --i;
-        arr_[size_ + i] = value;
+      for (size_type &i = size_; i < capacity_; ++i) {
+        arr_[i] = value;
       }
     } else {
-      for (size_type i = size_ - count; i != 0;) {
-        --i;
-        arr_[size_ + i].~value_type();
+      for (size_type &i = size_; count < i;) {
+        arr_[--i].~value_type();
       }
     }
   }
@@ -235,7 +243,7 @@ public:
     if (size_ == capacity_) {
       grow_capacity_();
     }
-    arr_[++size_] = value;
+    arr_[size_++] = value;
   }
 
   void pop_back() {
@@ -266,7 +274,7 @@ public:
   // TODO: front
   value_type &front() {
     if (not empty()) {
-      return *arr_;
+      return arr_[0];
     } else {
       throw std::out_of_range("vector is empty");
     }
@@ -274,7 +282,7 @@ public:
 
   const value_type &front() const {
     if (not empty()) {
-      return *arr_;
+      return arr_[0];
     } else {
       throw std::out_of_range("vector is empty");
     }
@@ -283,7 +291,7 @@ public:
   // TODO: back
   value_type &back() {
     if (not empty()) {
-      return *(arr_ + size_ - 1);
+      return arr_[size_ - 1];
     } else {
       throw std::out_of_range("vector is empty");
     }
@@ -304,12 +312,13 @@ protected:
 
   inline void scale_capacity_(size_type new_cap) {
     assert(new_cap != 0);
-    arr_ = mem_.allocate(arr_ == nullptr ? NEW_ALLOC : arr_, new_cap);
+    arr_ = mem_.allocate(arr_, new_cap);
     capacity_ = new_cap;
   }
 
   inline void grow_capacity_() {
-    scale_capacity_(static_cast<size_type>(growth_factor * size_));
+    // FIXME: check for max_size() allocator
+    scale_capacity_(static_cast<size_type>(GROWTH_FACTOR) * size_ + 1);
   }
 
 public:
@@ -569,4 +578,11 @@ bool operator>=(const vector<T, Alloc> &lhs, const vector<T, Alloc> &rhs) {
                                 std::greater_equal<T>);
 }
 } // namespace ft
+
+namespace std {
+template <typename T, typename Allocator>
+void swap(ft::vector<T, Allocator> &v1, ft::vector<T, Allocator> &v2) {
+  v1.swap(v2);
+}
+} // namespace std
 #endif // VECTOR_HPP

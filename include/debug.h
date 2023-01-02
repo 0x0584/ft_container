@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <limits.h>
+#include <iso646.h>
 
 #ifdef DEBUG
 #ifdef NDEBUG

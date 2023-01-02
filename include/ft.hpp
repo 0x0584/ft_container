@@ -168,30 +168,30 @@ protected:
   */
 };
 
-#define INVALID_ALLOCATION NULL
-template <typename T> struct allocator_no_throw : public allocator<T> {
-  using allocator = allocator<T>;
-
-  inline pointer allocate(pointer hint) override { return allocate(hint, 1); }
-
-  inline pointer allocate(pointer hint, size_type n) override {
-    try {
-      return allocator::allocate(hint, n);
-    } catch (const std::bad_alloc &e) {
-      return INVALID_ALLOCATION;
-    }
-  }
-
-  inline bool construct(pointer &ptr, size_type n, const_reference val) {
-    try {
-      allocator<T>::allocate(ptr, n);
-      return true;
-    }
-    else {
-      return false;
-    }
-  }
-};
+//#define INVALID_ALLOCATION NULL
+//template <typename T> struct allocator_no_throw : public allocator<T> {
+//  using allocator = allocator<T>;
+//
+//  inline pointer allocate(pointer hint) override { return allocate(hint, 1); }
+//
+//  inline pointer allocate(pointer hint, size_type n) override {
+//    try {
+//      return allocator::allocate(hint, n);
+//    } catch (const std::bad_alloc &e) {
+//      return INVALID_ALLOCATION;
+//    }
+//  }
+//
+//  inline bool construct(pointer &ptr, size_type n, const_reference val) {
+//    try {
+//      allocator<T>::allocate(ptr, n);
+//      return true;
+//    }
+//    else {
+//      return false;
+//    }
+//  }
+//};
 
 template <typename T> class shreded_allocator : public allocator<T> {};
 template <typename T> using default_allocator = allocator<T>;
@@ -257,6 +257,17 @@ protected:
   deleter mem_;
   pointer ptr_ = nullptr;
 };
+
+// FIXME: implmenet one for random access end - begin
+template <typename SizeType, typename It> SizeType distance(It begin, It end) {
+  SizeType count = 0;
+  while (begin != end) {
+    ++begin;
+    ++count;
+  }
+  return count;
+}
+
 } // namespace ft
 
 namespace std {

@@ -74,7 +74,7 @@ TEST(UniquePtrAllocator, Custom) {
   ASSERT_TRUE(post_cond);
 }
 
-TEST(UniquePtrFuncs, GetReset) {
+TEST(UniquePtrFuncs, Get_Reset) {
   unique_ptr::pointer pre_cond1 = new unique_ptr::value_type(1);
   unique_ptr::pointer pre_cond2 = new unique_ptr::value_type(2);
   unique_ptr ptr(pre_cond1);
